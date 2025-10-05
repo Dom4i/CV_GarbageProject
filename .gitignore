@@ -1,3 +1,13 @@
 .venv/
 __pycache__/
 *.pyc
+
+
+# Daten & Modelle nicht ins Repo!
+data/*
+models/*
+!data/.gitkeep
+!models/.gitkeep
+
+# OS
+.DS_Store
