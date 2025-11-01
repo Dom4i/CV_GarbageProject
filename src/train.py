@@ -12,11 +12,11 @@ import torch.backends.cudnn as cudnn
 cudnn.benchmark = True  # für schnellere Trainingsläufe
 from torch import amp as torch_amp  # <-- einmalig ganz oben in train.py
 
-def seed_everything(seed: int = 42):
+def seed_everything(seed: int = 42): # setzt gleichen seed für alle Zufallsquellen -> accuracy bleibt bei jedem Ausführen gleich
     import random, numpy as np
-    random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed); torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    random.seed(seed); np.random.seed(seed); torch.manual_seed(seed) # Pythons zufallsfunktionen, NumPy, PyTorch auf der CPU
+    torch.cuda.manual_seed_all(seed); torch.backends.cudnn.deterministic = True # für GPU: torch.backends.cudnn.deterministic = True -> verwendet nur deterministische Implementierungen (Ergebnis ist immer gleich)
+    torch.backends.cudnn.benchmark = False # True wäre auch nicht deterministisch
 
 
 def train_one_epoch(model, loader, optimizer, criterion, device, scaler=None):
@@ -26,57 +26,59 @@ def train_one_epoch(model, loader, optimizer, criterion, device, scaler=None):
       - device 'cuda' ist und
       - ein GradScaler übergeben wurde.
     """
-    use_cuda = (device.type == "cuda")
+    use_cuda = (device.type == "cuda") # prüft, ob auf GPU trainiert wird
     model.train()
-    running_loss, correct, total = 0.0, 0, 0
+    running_loss, correct, total = 0.0, 0, 0 # Variablen für Statistik
 
+    # Iteriere über alle Batches aus dem DataLoader
     for xb, yb in loader:
-        xb = xb.to(device, non_blocking=use_cuda)
+        xb = xb.to(device, non_blocking=use_cuda) # Übertrage Daten und Labels auf das Gerät (GPU/CPU)
         yb = yb.to(device, non_blocking=use_cuda)
 
-        optimizer.zero_grad(set_to_none=True)
+        optimizer.zero_grad(set_to_none=True) # Gradientenpuffer auf Null setzen (effizienter als zero_grad())
 
-        if scaler is not None and use_cuda:
+        if scaler is not None and use_cuda: # Verwende Mixed Precision (16-bit Berechnung auf GPU)
             # AMP (neue API)
             with torch_amp.autocast("cuda", enabled=True):
-                logits = model(xb)
-                loss = criterion(logits, yb)
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+                logits = model(xb) # Vorwärtspass
+                loss = criterion(logits, yb) # Verlust berechnen
+            scaler.scale(loss).backward() # Skaliertes Backward (verhindert Overflow)
+            scaler.step(optimizer) # Optimizer-Update
+            scaler.update() # Skaler aktualisieren
         else:
             # FP32-Fallback (CPU oder ohne Scaler)
             logits = model(xb)
             loss = criterion(logits, yb)
-            loss.backward()
-            optimizer.step()
+            loss.backward() # Gradienten berechnen
+            optimizer.step() # Parameter aktualisieren
 
+        # Statistik aktualisieren:
         running_loss += loss.item() * xb.size(0)
-        preds = logits.argmax(dim=1)
+        preds = logits.argmax(dim=1) # Klassen mit höchster Wahrscheinlichkeit
         correct += (preds == yb).sum().item()
         total += xb.size(0)
 
-    return running_loss / max(total, 1), correct / max(total, 1)
+    return running_loss / max(total, 1), correct / max(total, 1) # Durchschnittlicher Verlust & Genauigkeit der Epoche
 
-@torch.no_grad()
+@torch.no_grad() # deaktiviert Gradientenberechnung -> schneller & weniger Speicher
 def evaluate(model, loader, criterion, device) -> Tuple[float, float, Dict[str, int]]:
     model.eval()
     running_loss, correct, total = 0.0, 0, 0
-    all_preds, all_targets = [], []
+    all_preds, all_targets = [], [] # für späteren Classification Report
     for xb, yb in loader:
         xb, yb = xb.to(device, non_blocking=True), yb.to(device, non_blocking=True)
-        logits = model(xb)
-        loss = criterion(logits, yb)
+        logits = model(xb) # Vorwärtspass
+        loss = criterion(logits, yb) # Verlust berechnen
         running_loss += loss.item() * xb.size(0)
-        preds = logits.argmax(1)
+        preds = logits.argmax(1) # Index der höchsten Wahrscheinlichkeit
         correct += (preds == yb).sum().item()
         total += xb.size(0)
+        # Ergebnisse für spätere Auswertung speichern:
         all_preds.extend(preds.cpu().tolist())
         all_targets.extend(yb.cpu().tolist())
-    return (running_loss / total,
-            correct / total,
-            {"preds": all_preds, "targets": all_targets})
-def fit(
+    return (running_loss / total, correct / total, {"preds": all_preds, "targets": all_targets}) # Durchschnittlicher Verlust & Genauigkeit + Listen für Report
+
+def fit( # default Werte sind festgelegt, können aber von main.py überschrieben werden
     data_dir: str = "data/TrashType_Image_Dataset",
     models_dir: str = "models",
     img_size: int = 224,
@@ -90,11 +92,11 @@ def fit(
 ):
     import json
 
-    seed_everything(seed)
+    seed_everything(seed) # setzt gleichen seed für alle Zufallsquellen
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Device: {device}")
+    print(f"Device: {device}") # gibt aus, ob cpu oder cuda verwendet wird
 
-    # Data
+    # Datensätze & DataLoader
     train_loader, val_loader, class_names = get_dataloaders(
         data_dir=data_dir,
         img_size=img_size,
@@ -102,17 +104,18 @@ def fit(
         val_split=val_split,
         augment=True,
     )
-    num_classes = len(class_names)
+    num_classes = len(class_names) # Anzahl der Klassen bestimmen
 
     # Model & loss
     model = SmallCNN(num_classes=num_classes).to(device)
 
-    if use_class_weights:
+    if use_class_weights: # Ungleichgewicht zwischen Klassen ausgleichen
         w = compute_class_weights(train_loader, num_classes=num_classes).to(device)
         criterion = nn.CrossEntropyLoss(weight=w, label_smoothing=0.1) # Label Smoothing hilft bei Klassen, die sich visuell ähneln (glass/metal/plastic).
-    else:
+    else: # Ohne Gewichtung
         criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 
+    # Optimizer + Lernraten-Scheduler + AMP-Scaler
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2)
     scaler = torch_amp.GradScaler("cuda", enabled=(device.type == "cuda"))
