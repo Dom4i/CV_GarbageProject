@@ -6,9 +6,10 @@ if __name__ == "__main__":
         models_dir="models",
         img_size=224,
         batch_size=96,
-        epochs=15, # wenn Rechner ohne starker GPU verwendet wird -> geringe Anzahl an epochs
+        epochs=25, # wenn Rechner ohne starker GPU verwendet wird -> geringe Anzahl an epochs
         lr=1e-3,
         val_split=0.2,
         use_class_weights=True,
         seed=42,
+        preview=True
     )

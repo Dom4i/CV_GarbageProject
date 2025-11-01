@@ -89,6 +89,7 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
     use_class_weights: bool = True,
     seed: int = 42,
     early_stopping_patience: int = 5,   # None = deaktivieren
+    preview=True,
 ):
     import json
 
@@ -103,6 +104,7 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
         batch_size=batch_size,
         val_split=val_split,
         augment=True,
+        preview=preview,
     )
 
     num_classes = len(class_names) # Anzahl der Klassen bestimmen

@@ -14,6 +14,7 @@ def get_dataloaders(
     num_workers: int = None, # Anzahl der parallelen Worker
     val_split: float = 0.2,
     augment: bool = True,
+    preview: bool = False,
 ) -> Tuple[DataLoader, DataLoader, List[str]]: # Funktion gibt Tupel (Mehrfach Rückgabewert) zurück aus: DataLoader Training, DataLoader Validation und Liste mit Klassennamen
     """
     Erstellt train/val DataLoader mit optionaler Augmentation und automatischer
@@ -88,6 +89,41 @@ def get_dataloaders(
           f"Workers={num_workers} | "
           f"Batch={batch_size} | "
           f"Augment={'On' if augment else 'Off'}")
+
+    # Optional: Beispielbilder anzeigen
+    if preview:
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        xb, yb = next(iter(train_loader))
+        mean = torch.tensor(IMAGENET_MEAN).view(3, 1, 1)
+        std = torch.tensor(IMAGENET_STD).view(3, 1, 1)
+
+        # Hole die zugrunde liegende ImageFolder-Instanz
+        base_dataset = ds_train.dataset
+        # Verwende die train_idx-Liste (Subset weiß, welche Indizes verwendet wurden)
+        subset_indices = ds_train.indices
+
+        # Wir zeigen dieselben Bilder wie im ersten Batch an
+        n_show = min(12, xb.size(0))
+        fig, axes = plt.subplots(3, 4, figsize=(12, 9))
+        axes = axes.flatten()
+
+        for i in range(n_show):
+            img = xb[i].cpu() * std + mean  # Rücknormalisierung
+            img = img.permute(1, 2, 0).numpy()
+            path, _ = base_dataset.samples[subset_indices[i]]  # Dateipfad aus Original-Dataset
+            filename = os.path.basename(path)
+
+            axes[i].imshow(np.clip(img, 0, 1))
+            axes[i].set_title(
+                f"{class_names[yb[i].item()]}\n({filename})",
+                fontsize=9
+            )
+            axes[i].axis("off")
+
+        plt.tight_layout()
+        plt.show()
 
     return train_loader, val_loader, class_names
 
