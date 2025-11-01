@@ -104,6 +104,7 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
         val_split=val_split,
         augment=True,
     )
+
     num_classes = len(class_names) # Anzahl der Klassen bestimmen
 
     # Model & loss
@@ -181,3 +182,66 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
     print("Confusion matrix (val):")
     print(confusion_matrix(out["targets"], out["preds"]))
     print(f"\nBest checkpoint saved to: {best_weights.resolve()}")
+
+    #Fehlklassifizierte Bilder anzeigen:
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Wir gehen den gesamten Validierungsdatensatz durch
+    misclassified_images = [] # Bilder in Tensor-Form speichern
+    misclassified_preds = [] # hier die vorhergesagten Klassenindices
+    misclassified_labels = [] # hier die tatsächlichen Klassenindices
+
+    model.eval()  # sicherstellen, dass das Modell im Eval-Modus ist
+
+    with torch.no_grad():
+        for xb, yb in val_loader: # Iteriere über alle Validierungsbatches
+            xb, yb = xb.to(device), yb.to(device) # Übertrage Eingaben (Bilder) und Labels auf CPU oder GPU
+            logits = model(xb) # Modellvorhersage (logits = rohe Ausgaben vor Softmax)
+            preds = logits.argmax(dim=1) # Index der Klasse mit höchster Wahrscheinlichkeit
+
+            # finde Indizes, wo Prädiktion ungleich Label
+            wrong_idx = (preds != yb).nonzero(as_tuple=True)[0]
+
+            for idx in wrong_idx: # für jedes falsch klassifizierte Bild:
+                img = xb[idx].cpu() # Bild zurück auf CPU (für Anzeige)
+                pred_label = preds[idx].item() # vorhergesagte Klasse als Integer
+                true_label = yb[idx].item() # tatsächliche Klasse als Integer
+
+                # in die vorbereiteten Listen einfügen:
+                misclassified_images.append(img)
+                misclassified_preds.append(pred_label)
+                misclassified_labels.append(true_label)
+
+    # zeige einige der falsch klassifizierten Bilder an
+    n_show = min(12, len(misclassified_images))  # z.B. 12 Bilder anzeigen
+    fig, axes = plt.subplots(3, 4, figsize=(12, 9))
+    axes = axes.flatten() # flacht das 2D-Array (3x4) zu einer 1D-Liste ab
+
+    for i in range(n_show): # Schleife über die ausgewählten Fehlklassifikationen
+        img = misclassified_images[i]
+        # Bild wieder von [-1,1]-Skala auf [0,1] zurücktransformieren
+        # Rücknormalisierung der Pixelwerte:
+        # Das Training hat Bilder mit ImageNet-Mean/Std normalisiert,
+        # also müssen wir diese Werte rückgängig machen, damit die Farben korrekt sind.
+        mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+        std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+        img = img * std + mean  # Rücknormalisierung
+
+        # PyTorch speichert Bilder als [C, H, W] (Channels first),
+        # Matplotlib erwartet aber [H, W, C] (Channels last)
+        img = img.permute(1, 2, 0).numpy()  # Tensor -> HWC-Format
+
+        # Zeige das Bild an, mit Farbwerte auf [0,1] begrenzt:
+        axes[i].imshow(np.clip(img, 0, 1))
+        axes[i].set_title(
+            f"Pred: {class_names[misclassified_preds[i]]}\nTrue: {class_names[misclassified_labels[i]]}",
+            fontsize=10,
+            color="red"
+        )
+        axes[i].axis("off")
+
+    # Layout optimieren und Bilder anzeigen:
+    plt.tight_layout()
+    plt.show()
