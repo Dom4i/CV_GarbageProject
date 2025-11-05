@@ -1,7 +1,12 @@
 from pathlib import Path
 from typing import Dict, Tuple
 import time
+
+from PIL import Image
+import numpy
 import torch
+import random
+import numpy as np
 import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -13,7 +18,6 @@ cudnn.benchmark = True  # für schnellere Trainingsläufe
 from torch import amp as torch_amp  # <-- einmalig ganz oben in train.py
 
 def seed_everything(seed: int = 42): # setzt gleichen seed für alle Zufallsquellen -> accuracy bleibt bei jedem Ausführen gleich
-    import random, numpy as np
     random.seed(seed); np.random.seed(seed); torch.manual_seed(seed) # Pythons zufallsfunktionen, NumPy, PyTorch auf der CPU
     torch.cuda.manual_seed_all(seed); torch.backends.cudnn.deterministic = True # für GPU: torch.backends.cudnn.deterministic = True -> verwendet nur deterministische Implementierungen (Ergebnis ist immer gleich)
     torch.backends.cudnn.benchmark = False # True wäre auch nicht deterministisch
@@ -93,9 +97,27 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
 ):
     import json
 
+    from src.visualize_gradcam import visualize_gradcam
+
+    from src.visualize import (
+        plot_training_history,
+        plot_confusion_matrix,
+        plot_class_distribution,
+        plot_error_rate_per_class,
+        plot_prediction_confidence
+    )
+
     seed_everything(seed) # setzt gleichen seed für alle Zufallsquellen
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}") # gibt aus, ob cpu oder cuda verwendet wird
+
+    #Daten sammeln für Plot
+    history = {
+        "train_loss": [],
+        "train_acc": [],
+        "val_loss": [],
+        "val_acc": []
+    }
 
     # Datensätze & DataLoader
     train_loader, val_loader, class_names = get_dataloaders(
@@ -106,6 +128,13 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
         augment=True,
         preview=preview,
     )
+
+    #Für Diagram
+    train_labels = []
+    for _, yb in train_loader:
+        train_labels.extend(yb.tolist())
+
+    plot_class_distribution(train_labels, class_names)
 
     num_classes = len(class_names) # Anzahl der Klassen bestimmen
 
@@ -144,6 +173,12 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
             model, train_loader, optimizer, criterion, device, scaler
         )
         val_loss, val_acc, _ = evaluate(model, val_loader, criterion, device)
+
+        history["train_loss"].append(tr_loss)
+        history["train_acc"].append(tr_acc)
+        history["val_loss"].append(val_loss)
+        history["val_acc"].append(val_acc)
+
         scheduler.step(val_loss)
 
         dt = time.time() - t0
@@ -170,6 +205,28 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
     # (nur Gewichte, keine Pickle-Objekte)
     state_dict = torch.load(best_weights, map_location="cpu", weights_only=True)
     model.load_state_dict(state_dict)
+
+    #Daten für Plot
+    _, _, out = evaluate(model, val_loader, criterion, device)
+    all_preds = out["preds"]
+    all_targets = out["targets"]
+
+    # Confusion Matrix berechnen
+    cm = confusion_matrix(all_targets, all_preds)
+
+    probs_list = []
+    targets_list = []
+
+    model.eval()
+    with torch.no_grad():
+        for xb, yb in val_loader:
+            xb, yb = xb.to(device), yb.to(device)
+            logits = model(xb)
+            softmax_probs = torch.softmax(logits, dim=1)
+
+            probs_list.extend(softmax_probs.cpu().tolist())
+            targets_list.extend(yb.cpu().tolist())
+
 
     # Klassenliste laden (falls extern gebraucht)
     try:
@@ -247,3 +304,39 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
     # Layout optimieren und Bilder anzeigen:
     plt.tight_layout()
     plt.show()
+
+    # Training History
+    plot_training_history(history)
+
+    # Confusion Matrix
+    plot_confusion_matrix(cm, class_names)
+
+    # Fehlerquote pro Klasse
+    plot_error_rate_per_class(all_targets, all_preds, class_names)
+
+    # Prediction Confidence
+    plot_prediction_confidence(probs_list, targets_list, class_names)
+
+    # ----- Grad-CAM für ein paar Beispielbilder -----
+    print("\nGrad-CAM Visualisierung für Beispielbilder:")
+
+    example_paths = []
+    for batch in val_loader:
+        xb, yb = batch
+        for i in range(min(5, len(xb))):  # Nur die ersten 5 Bilder
+            # Das Originalbild wieder zurückskalieren und zwischenspeichern
+            img = xb[i].cpu()
+            mean = torch.tensor([0.485, 0.456, 0.406]).view(3,1,1)
+            std = torch.tensor([0.229, 0.224, 0.225]).view(3,1,1)
+            img = img * std + mean
+            img = (img.permute(1,2,0).numpy() * 255).astype(np.uint8)
+            path = f"example_img_{i}.png"
+            Image.fromarray(img).save(path)
+            example_paths.append(path)
+        break  # Nur den ersten Batch verwenden
+
+    # Grad-CAM auf diese Beispielbilder anwenden
+    for path in example_paths:
+        visualize_gradcam(model, path, class_names, target_layer="net.12")
+
+
