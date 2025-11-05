@@ -36,10 +36,10 @@ def get_dataloaders(
     # Hier mit Augmentation Parameter herumspielen:
     if augment: # augmentation wird für jede trainings epoche neu durchgeführt -> nachfolgend sind random augmentation, d.h. in jedem epoch sind leicht unterschiedliche Bilder als Trainingsdaten
         train_tfms = transforms.Compose([
-            transforms.RandomResizedCrop(img_size, scale=(0.85, 1.0)),
+            transforms.RandomResizedCrop(img_size, scale=(0.9, 1.0)),
             transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomRotation(degrees=10),
-            transforms.ColorJitter(brightness=0.08, contrast=0.08),
+            transforms.RandomRotation(degrees=5),
+            transforms.ColorJitter(brightness=0.05, contrast=0.05),
             transforms.ToTensor(),
             transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
         ])
