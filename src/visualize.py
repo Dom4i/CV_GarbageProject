@@ -2,14 +2,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-# ----- 1. Loss & Accuracy Plot -----
+# 1. Training-Verlauf: Loss & Accuracy pro Epoche
 def plot_training_history(history: dict):
     plt.figure(figsize=(10,4))
+
+    # Loss-Plot
     plt.subplot(1,2,1)
     plt.plot(history["train_loss"], label="Train Loss")
     plt.plot(history["val_loss"], label="Val Loss")
     plt.legend(); plt.title("Loss per Epoch")
 
+    # Accuracy-Plot
     plt.subplot(1,2,2)
     plt.plot(history["train_acc"], label="Train Acc")
     plt.plot(history["val_acc"], label="Val Acc")
@@ -18,7 +21,7 @@ def plot_training_history(history: dict):
     plt.show()
 
 
-# ----- 2. Confusion Matrix Heatmap -----
+# 2. Confusion Matrix als Heatmap
 def plot_confusion_matrix(cm, class_names):
     plt.figure(figsize=(8,6))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
@@ -30,7 +33,7 @@ def plot_confusion_matrix(cm, class_names):
     plt.show()
 
 
-# ----- 3. Klassenverteilung -----
+# 3. Klassenverteilung im Datensatz
 def plot_class_distribution(labels, class_names):
     unique, counts = np.unique(labels, return_counts=True)
     plt.figure(figsize=(8,4))
@@ -42,16 +45,18 @@ def plot_class_distribution(labels, class_names):
     plt.tight_layout()
     plt.show()
 
-
+# 4. Fehlerquote pro Klasse (Validierungsdaten)
 def plot_error_rate_per_class(all_targets, all_preds, class_names):
     class_errors = []
     class_totals = []
     for i, name in enumerate(class_names):
+        # Fehler und Gesamtanzahl pro Klasse zählen
         errors = sum(1 for t, p in zip(all_targets, all_preds) if t == i and p != i)
         total = sum(1 for t in all_targets if t == i)
         class_errors.append(errors)
         class_totals.append(total)
 
+    # Fehlerquote pro Klasse berechnen
     class_error_rate = [e/t if t>0 else 0 for e,t in zip(class_errors, class_totals)]
 
     plt.figure(figsize=(8,4))
@@ -62,6 +67,7 @@ def plot_error_rate_per_class(all_targets, all_preds, class_names):
     plt.tight_layout()
     plt.show()
 
+# 5. Vorhersage-Sicherheit (Softmax-Werte pro Klasse)
 def plot_prediction_confidence(probs, targets, class_names):
     plt.figure(figsize=(10,5))
     n_classes = len(class_names)
@@ -69,6 +75,8 @@ def plot_prediction_confidence(probs, targets, class_names):
     # probs: List of lists von softmax-Wahrscheinlichkeiten
     # targets: List von Integer-Labels
     for i, class_name in enumerate(class_names):
+
+        # Wahrscheinlichkeiten der "wahren Klasse" herausfiltern
         class_probs = [p[i] for p, t in zip(probs, targets) if t == i]
         plt.hist(class_probs, bins=20, alpha=0.5, label=class_name)
 

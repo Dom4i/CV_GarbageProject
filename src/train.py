@@ -1,9 +1,7 @@
 from pathlib import Path
 from typing import Dict, Tuple
 import time
-
 from PIL import Image
-import numpy
 import torch
 import random
 import numpy as np
@@ -15,7 +13,7 @@ from .dataset import get_dataloaders, compute_class_weights
 from .model_cnn import SmallCNN
 import torch.backends.cudnn as cudnn
 cudnn.benchmark = True  # für schnellere Trainingsläufe
-from torch import amp as torch_amp  # <-- einmalig ganz oben in train.py
+from torch import amp as torch_amp
 
 def seed_everything(seed: int = 42): # setzt gleichen seed für alle Zufallsquellen -> accuracy bleibt bei jedem Ausführen gleich
     random.seed(seed); np.random.seed(seed); torch.manual_seed(seed) # Pythons zufallsfunktionen, NumPy, PyTorch auf der CPU
@@ -97,6 +95,7 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
 ):
     import json
 
+    #Für Plots
     from src.visualize_gradcam import visualize_gradcam
 
     from src.visualize import (
@@ -206,7 +205,7 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
     state_dict = torch.load(best_weights, map_location="cpu", weights_only=True)
     model.load_state_dict(state_dict)
 
-    #Daten für Plot
+    # Daten für Plot
     _, _, out = evaluate(model, val_loader, criterion, device)
     all_preds = out["preds"]
     all_targets = out["targets"]
@@ -288,6 +287,7 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
         std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
         img = img * std + mean  # Rücknormalisierung
 
+        # Erklärung:
         # PyTorch speichert Bilder als [C, H, W] (Channels first),
         # Matplotlib erwartet aber [H, W, C] (Channels last)
         img = img.permute(1, 2, 0).numpy()  # Tensor -> HWC-Format
@@ -301,6 +301,7 @@ def fit( # default Werte sind festgelegt, können aber von main.py überschriebe
         )
         axes[i].axis("off")
 
+    # ----- Plots anzeigen -----
     # Layout optimieren und Bilder anzeigen:
     plt.tight_layout()
     plt.show()

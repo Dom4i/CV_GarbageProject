@@ -90,7 +90,7 @@ def get_dataloaders(
           f"Batch={batch_size} | "
           f"Augment={'On' if augment else 'Off'}")
 
-    # Optional: Beispielbilder anzeigen
+    # Beispielbilder anzeigen
     if preview:
         import matplotlib.pyplot as plt
         import numpy as np
