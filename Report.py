@@ -6,6 +6,7 @@ Project Report
 Authors: Gössl Marcel, Marek Simon, Schrenk Dominik, Unger Miriam
 Date: 06.11.2025
 Course: Computer Vision
+Github Repo: https://github.com/Dom4i/CV_GarbageProject
 
 ----------------------------------------
 1. Dataset Description
@@ -28,10 +29,10 @@ Course: Computer Vision
     Die Klasse "Trash" hat allerdings nur 137 Bilder und damit deutlich weniger Daten.
 • What was the imaging source or environment?
     Die Bilder wurden mit einer optischen Kamera aufgenommen
-    Es handelt sich um Abfall, der auf einem einfärbigen Hintergrund aufgenommen wurde (meist weiß oder grau). Bei der Klasse "Cardboard" sind hingegen sind einige Objekte nah an der Kamera, sodass nur das Objekte ohne Hintergrund sichbar ist.
-        Daher wird vermutet, dass (mit Ausnahme der "Cardboard" Bilder ohne Hintergrund) der Hintergrund keinen Bias erzeugt.
+    Es handelt sich um Abfall, der auf einem einfärbigen Hintergrund aufgenommen wurde (meist weiß oder grau). Bei der Klasse "Cardboard" aber auch tweilweise "Paper" sind hingegen sind einige Objekte nah an der Kamera, sodass nur das Objekte ohne Hintergrund sichbar ist.
+        Daher wird vermutet, dass (mit Ausnahme der "Cardboard" und der "Paper" Bilder ohne Hintergrund) der Hintergrund keinen Bias erzeugt.
 • How did you preprocess or split the data?
-    Für das Training wurden die Bilder auf 224×224 Pixel skaliert (aus Performance-Gründen), in Tensors konvertiert und mittels ImageNet-Statistiken normalisiert (Mean = [0.485, 0.456, 0.406], Std = [0.229, 0.224, 0.225]). Die Aufteilung in Trainings- und Validierungsmenge erfolgte stratifiziert (80/20) mit fixer Zufalls­initialisierung, um die Klassenverteilung in beiden Splits konsistent zu halten und Reproduzierbarkeit sicherzustellen.
+    Für das Training wurden die Bilder auf 224×224 Pixel skaliert (aus Performance-Gründen), in Tensors konvertiert und mittels ImageNet-Statistiken normalisiert (Mean = [0.485, 0.456, 0.406], Std = [0.229, 0.224, 0.225]). Die Aufteilung in Trainings- und Validierungsmenge erfolgte stratifiziert (80/20) mit fixer Zufallsinitialisierung, um die Klassenverteilung in beiden Splits konsistent zu halten und Reproduzierbarkeit sicherzustellen.
 
     Datenaugmentation: Zur Robustheit gegenüber leichten Lage- und Helligkeitsänderungen kamen moderat dosierte, zufällige Transformationen zum Einsatz (u. a. RandomResizedCrop mit scale≈0.9–1.0, RandomHorizontalFlip, Rotation ca. ±8–10°, leichtes ColorJitter). Zusätzlich wurden Klassengewichte verwendet, um die Unterrepräsentation der Klasse „Trash“ teilweise auszugleichen. Eine Variante mit originalem Seitenverhältnis (384×512) wurde evaluiert, wegen längerer Laufzeiten jedoch zunächst zurückgestellt
 ----------------------------------------
@@ -41,7 +42,7 @@ Course: Computer Vision
 • In what kind of system could your model be applied?
 • What practical benefits could it have?
 
-    Die Mülltrennung ist essentiell für die Verarbeitung von Abfall. Da große Abfallmengen (wie etwa in Abfallanlagenm Mülldeponien etc.) kaum durch Menschen getrennt werden können, kann technologische Unterstützung helfen.
+    Die Mülltrennung ist essentiell für die Verarbeitung von Abfall. Da große Abfallmengen (wie etwa in Abfallanlagenm Mülldeponien etc.) kaum durch Menschen getrennt werden können, kann diese Technologie helfen (so wie sie es teilweise jetzt auch schon tut).
     Eine Beispielanwendung für ein Klassifizierungsmodell von Müllarten kann die Trennung durch Maschinen sein, wo sich Müllobjekte auf einem Förderband bewegen, automatisch erkannt und dadurch auch getrennt werden.
         Z.B. Überprüfung von schon getrenntem Müll (der von Haushalten bereits in Glas, Plastik, Restmüll etc. getrennt wurde)
         Z.B. Trennung von Mischungen aus verschiedenen Müllarten (z.B. öffentliche Mülleimer, bei denen keine Trennung möglich ist)
@@ -94,8 +95,8 @@ Course: Computer Vision
 6. Discussion and Learnings
 ----------------------------------------
     Insgesamt zeigte das Projekt sehr deutlich, wie stark die Ergebnisse bei Deep-Learning-Modellen von den gewählten Parametern und Trainingsbedingungen abhängen.
-    Schon kleine Änderungen an Lernrate, Batchgröße oder Augmentation führten zu teils spürbaren Unterschieden in der Accuracy. Wir haben gelernt, dass es in der Praxis kein „optimales Rezept“ gibt,
-    sondern dass viel Ausprobieren, Beobachten und Anpassen notwendig ist, um ein stabiles Modell zu erhalten.
+    Schon kleine Änderungen an Lernrate, Batchgröße oder Augmentation führten zu teils relativ spürbaren Unterschieden in der Accuracy. Wir haben gelernt, dass es in der Praxis kein „optimales Rezept“ gibt,
+    sondern dass viel Ausprobieren, Beobachten und Anpassen (und Warten) notwendig ist, um ein stabiles Modell zu erhalten.
 
     Ein weiteres wichtiges Learning war der Einfluss der Hardware-Performance. Während ein Teammitglied mit einer leistungsstarken GPU (RTX 3070 Ti) ein Training in etwa 2–3 Minuten pro Durchlauf durchführen konnte,
     mussten andere Teammitglieder ohne dedizierte GPU oft 10–15 Minuten pro Training warten und konnten daher nur wenige Epochen testen. Diese Einschränkungen waren auch der Grund, warum wir schon früh im Projekt beschlossen,
@@ -104,4 +105,3 @@ Course: Computer Vision
     Trotz dieser Hürden war das Projekt lehrreich und zeigte, dass praktische Erfahrung mit Modellen, Datensätzen und Parametern oft wichtiger ist als theoretisches Wissen allein.
     Wir konnten ein grundsätzlich funktionierendes Modell entwickeln, verstehen, wo seine Grenzen liegen, und wertvolle Erfahrung im Umgang mit Trainingsstrategien, Augmentation und Performance-Optimierung sammeln.
 """
-
